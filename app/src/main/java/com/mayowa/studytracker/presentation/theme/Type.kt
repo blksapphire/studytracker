@@ -1,5 +1,6 @@
 package com.mayowa.studytracker.presentation.theme
 
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -24,6 +25,7 @@ private val PoppinsFamily = FontFamily(
 // anything read at length (History rows, Insights numbers). Ships from
 // Google as a single variable font, so weights are driven via
 // FontVariation rather than separate files.
+@OptIn(ExperimentalTextApi::class)
 private fun interWeight(weight: Int) = Font(
     resId = R.font.inter_regular,
     weight = FontWeight(weight),
