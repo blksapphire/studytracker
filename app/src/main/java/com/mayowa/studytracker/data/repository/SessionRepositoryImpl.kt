@@ -34,7 +34,8 @@ class SessionRepositoryImpl @Inject constructor(
         endedAt = endedAt,
         durationMillis = durationMillis,
         tag = tag,
-        appTrail = appTrailCsv.split(",").filter { it.isNotBlank() }
+        appTrail = appTrailCsv.split(",").filter { it.isNotBlank() },
+        distractionCount = distractionCount
     )
 
     private fun DailyStatsEntity.toDomain() = DailyStats(
