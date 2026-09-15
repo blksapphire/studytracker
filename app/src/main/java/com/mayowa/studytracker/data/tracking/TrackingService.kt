@@ -60,7 +60,7 @@ class TrackingService : Service() {
 
     private suspend fun pollLoop() {
         val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        while (isActive) {
+       while (currentCoroutineContext().isActive) {
             val foregroundPackage = getCurrentForegroundPackage(usm)
             handleForegroundChange(foregroundPackage)
             delay(POLL_INTERVAL_MS)

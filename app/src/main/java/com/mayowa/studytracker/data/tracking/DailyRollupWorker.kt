@@ -11,6 +11,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.flow.first
 
 /**
  * Rolls today's sessions into a single DailyStatsEntity row. Runs
@@ -48,7 +49,7 @@ class DailyRollupWorker @AssistedInject constructor(
         // Simplified one-shot collection — swap for a suspend DAO query
         // (non-Flow) once this is wired up for real; kept as Flow here so
         // the same DAO method also serves live UI observation.
-        kotlinx.coroutines.flow.first(sessions).forEach { session ->
+        sessions.first().forEach { session ->
             total += session.durationMillis
             if (session.durationMillis > longest) longest = session.durationMillis
             count++
