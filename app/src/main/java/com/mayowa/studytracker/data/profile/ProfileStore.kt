@@ -63,6 +63,12 @@ class ProfileStore(private val context: Context) {
         }
     }
 
+    suspend fun setExamDate(millis: Long?) {
+        context.studentProfileDataStore.edit { p ->
+            if (millis == null) p.remove(Keys.examDate) else p[Keys.examDate] = millis
+        }
+    }
+
     suspend fun setNudgeEnabled(enabled: Boolean) {
         context.studentProfileDataStore.edit { it[Keys.nudge] = enabled }
     }
