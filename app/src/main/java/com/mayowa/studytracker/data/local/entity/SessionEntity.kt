@@ -10,12 +10,13 @@ data class SessionEntity(
     val endedAt: Long?,
     val durationMillis: Long,
     val tag: String?,
-    val appTrailCsv: String // comma-separated package names; kept simple, no TypeConverters needed yet
+    val appTrailCsv: String,
+    val distractionCount: Int = 0
 )
 
 @Entity(tableName = "daily_stats")
 data class DailyStatsEntity(
-    @PrimaryKey val date: String, // yyyy-MM-dd
+    @PrimaryKey val date: String,
     val totalStudyMillis: Long,
     val longestSessionMillis: Long,
     val sessionCount: Int,
