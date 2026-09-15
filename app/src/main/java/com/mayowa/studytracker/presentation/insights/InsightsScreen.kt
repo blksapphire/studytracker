@@ -9,10 +9,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.mayowa.studytracker.presentation.dashboard.formatDuration
 
-// Note: "peak focus hours" from the original feature list needs hourly-bucketed
-// session data, which the current schema doesn't retain (only day-level
-// daily_stats + per-session start/end). Revisit once History/Insights need
-// that granularity — cheap to add to the rollup worker later.
 @Composable
 fun InsightsScreen(viewModel: InsightsViewModel = hiltViewModel()) {
     val insights by viewModel.weeklyInsights.collectAsState()
@@ -23,8 +19,14 @@ fun InsightsScreen(viewModel: InsightsViewModel = hiltViewModel()) {
 
         InsightRow("Total study time", formatDuration(insights.totalMillis))
         InsightRow("Daily average", formatDuration(insights.averageMillisPerDay))
+        InsightRow("Sessions", insights.sessionCount.toString())
+        InsightRow("Average session", formatDuration(insights.averageSessionMillis))
         insights.bestDay?.let { InsightRow("Best day", "$it (${formatDuration(insights.bestDayMillis)})") }
         insights.topTag?.let { InsightRow("Most-studied subject", it) }
+        insights.peakHour?.let { hour ->
+            val end = (hour + 1) % 24
+            InsightRow("Peak focus hour", "%02d:00–%02d:00".format(hour, end))
+        }
     }
 }
 
