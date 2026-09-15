@@ -2,6 +2,10 @@ package com.mayowa.studytracker.presentation.dashboard
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -10,6 +14,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.mayowa.studytracker.data.tracking.TrackingService
 import kotlin.math.roundToInt
 
 @Composable
@@ -19,6 +24,8 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+    val isPaused by TrackingService.isPaused.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(
         modifier = Modifier.fillMaxSize().padding(20.dp),
@@ -47,23 +54,85 @@ fun DashboardScreen(
             )
         }
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(28.dp))
+
+        SessionControls(
+            isLive = state.isSessionLive,
+            isPaused = isPaused,
+            onStart = { TrackingService.start(context) },
+            onPause = { TrackingService.pause(context) },
+            onResume = { TrackingService.resume(context) },
+            onStop = { TrackingService.stop(context) }
+        )
+
+        Spacer(Modifier.height(28.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             StatCard(label = "Current streak", value = "🔥 ${state.currentStreakDays}d", accent = MaterialTheme.colorScheme.secondaryContainer, onAccent = MaterialTheme.colorScheme.onSecondaryContainer)
             StatCard(label = "Best streak", value = "⭐ ${state.longestStreakDays}d", accent = MaterialTheme.colorScheme.tertiaryContainer, onAccent = MaterialTheme.colorScheme.onTertiaryContainer)
         }
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(24.dp))
 
         if (state.isSessionLive) {
-            AssistChip(onClick = {}, label = { Text("Live session in progress") })
+            AssistChip(
+                onClick = {},
+                label = { Text(if (isPaused) "Session paused" else "Live session in progress") }
+            )
             Spacer(Modifier.height(16.dp))
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(onClick = onOpenHistory) { Text("History") }
             OutlinedButton(onClick = onOpenAppLibrary) { Text("App Library") }
+        }
+    }
+}
+
+@Composable
+private fun SessionControls(
+    isLive: Boolean,
+    isPaused: Boolean,
+    onStart: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onStop: () -> Unit
+) {
+    if (!isLive) {
+        Button(
+            onClick = onStart,
+            modifier = Modifier.fillMaxWidth().height(56.dp)
+        ) {
+            Icon(Icons.Filled.PlayArrow, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Start Session")
+        }
+        return
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Button(
+            onClick = if (isPaused) onResume else onPause,
+            modifier = Modifier.weight(1f).height(52.dp)
+        ) {
+            Icon(
+                if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                contentDescription = null
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(if (isPaused) "Resume" else "Pause")
+        }
+
+        OutlinedButton(
+            onClick = onStop,
+            modifier = Modifier.weight(1f).height(52.dp)
+        ) {
+            Icon(Icons.Filled.Stop, contentDescription = null)
+            Spacer(Modifier.width(6.dp))
+            Text("Stop")
         }
     }
 }
