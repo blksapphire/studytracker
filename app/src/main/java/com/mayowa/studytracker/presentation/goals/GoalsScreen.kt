@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.TrackChanges
@@ -41,7 +40,7 @@ fun GoalsScreen(viewModel: GoalsViewModel = hiltViewModel()) {
         ).apply { setOnDismissListener { showDatePicker = false } }.show()
     }
 
-    LazyGoalsContent(
+    GoalsContent(
         goalMillis = state.adaptiveGoalMillis,
         examDateMillis = state.examDateMillis,
         daysUntilExam = state.daysUntilExam,
@@ -51,7 +50,7 @@ fun GoalsScreen(viewModel: GoalsViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun LazyGoalsContent(goalMillis: Long, examDateMillis: Long?, daysUntilExam: Long, onPickExam: () -> Unit, onClearExam: () -> Unit) {
+private fun GoalsContent(goalMillis: Long, examDateMillis: Long?, daysUntilExam: Int?, onPickExam: () -> Unit, onClearExam: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Box(Modifier.fillMaxWidth().height(110.dp)) {
             Box(Modifier.size(120.dp).align(Alignment.TopEnd).blur(40.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = .18f), CircleShape))
@@ -90,8 +89,8 @@ private fun LazyGoalsContent(goalMillis: Long, examDateMillis: Long?, daysUntilE
                         Button(onClick = onPickExam, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) { Text("Choose exam date") }
                     } else {
                         val formatted = SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault()).format(Date(examDateMillis))
-                        Text("$daysUntilExam", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold)
-                        Text(if (daysUntilExam == 1L) "day until your exam" else "days until your exam", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${daysUntilExam ?: 0}", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold)
+                        Text(if (daysUntilExam == 1) "day until your exam" else "days until your exam", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(formatted, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                             OutlinedButton(onClick = onPickExam, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) { Text("Change date") }
