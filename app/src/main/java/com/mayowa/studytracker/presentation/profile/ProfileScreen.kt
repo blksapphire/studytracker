@@ -33,7 +33,8 @@ import java.util.Locale
 fun ProfileScreen(viewModel: ProfileViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
     val firstName = state.name.ifBlank { "Student" }.split(" ").first()
-    val examDays = state.examDateMillis?.let { ((it - System.currentTimeMillis()) / 86_400_000L).toInt() }
+    val examDateMillis = state.examDateMillis
+    val examDays = examDateMillis?.let { ((it - System.currentTimeMillis()) / 86_400_000L).toInt() }
     val levelStart = (state.level - 1) * 250
     val levelProgress = ((state.xp - levelStart).coerceAtLeast(0) / 250f).coerceIn(0f, 1f)
     val xpIntoLevel = (state.xp - levelStart).coerceIn(0, 249)
@@ -71,8 +72,12 @@ fun ProfileScreen(viewModel: ProfileViewModel = hiltViewModel()) {
             ElevatedCard(shape = RoundedCornerShape(24.dp)) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Exam countdown", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    if (state.examDateMillis == null) Text("No exam date yet. Add one in Goals to make the countdown work for you.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    else { Text(if (examDays == null || examDays < 0) "Exam date has passed" else "$examDays days to go", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = TealPrimary); Text(SimpleDateFormat("EEEE, d MMMM yyyy", Locale.getDefault()).format(Date(state.examDateMillis)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    if (examDateMillis == null) {
+                        Text("No exam date yet. Add one in Goals to make the countdown work for you.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        Text(if (examDays == null || examDays < 0) "Exam date has passed" else "$examDays days to go", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = TealPrimary)
+                        Text(SimpleDateFormat("EEEE, d MMMM yyyy", Locale.getDefault()).format(Date(examDateMillis)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
