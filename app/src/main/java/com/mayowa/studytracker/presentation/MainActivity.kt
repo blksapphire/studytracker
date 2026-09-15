@@ -29,6 +29,7 @@ import com.mayowa.studytracker.presentation.goals.GoalsScreen
 import com.mayowa.studytracker.presentation.history.HistoryScreen
 import com.mayowa.studytracker.presentation.insights.InsightsScreen
 import com.mayowa.studytracker.presentation.onboarding.OnboardingScreen
+import com.mayowa.studytracker.presentation.planner.StudyPlanScreen
 import com.mayowa.studytracker.presentation.profile.ProfileScreen
 import com.mayowa.studytracker.presentation.session.SessionScreen
 import com.mayowa.studytracker.presentation.settings.SettingsScreen
@@ -42,6 +43,7 @@ private data class BottomDest(val route: String, val label: String, val icon: an
 private val BOTTOM_DESTINATIONS = listOf(
     BottomDest("dashboard", "Home", Icons.Filled.Home),
     BottomDest("session", "Focus", Icons.Filled.Timer),
+    BottomDest("planner", "Plan", Icons.Filled.AutoAwesome),
     BottomDest("insights", "Progress", Icons.Filled.TrendingUp),
     BottomDest("goals", "Goals", Icons.Filled.Star)
 )
@@ -81,6 +83,7 @@ private fun StudentScaffold(name: String) {
     val title = when (currentRoute) {
         "dashboard" -> if (name.isBlank()) "Good to see you" else "Hey, ${name.split(" ").first()} 👋"
         "session" -> "Focus time"
+        "planner" -> "Today's plan"
         "history" -> "Study history"
         "insights" -> "Your progress"
         "goals" -> "Your goals"
@@ -89,13 +92,12 @@ private fun StudentScaffold(name: String) {
         "settings" -> "Settings"
         else -> "StudyTracker"
     }
-
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            Box(modifier = Modifier.fillMaxWidth().height(92.dp).background(MaterialTheme.colorScheme.background)) {
-                Box(modifier = Modifier.size(150.dp).offset(x = 250.dp, y = (-65).dp).blur(35.dp).background(MintAccent.copy(alpha = 0.22f), RoundedCornerShape(100.dp)))
-                Row(modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Box(Modifier.fillMaxWidth().height(92.dp).background(MaterialTheme.colorScheme.background)) {
+                Box(Modifier.size(150.dp).offset(x = 250.dp, y = (-65).dp).blur(35.dp).background(MintAccent.copy(alpha = 0.22f), RoundedCornerShape(100.dp)))
+                Row(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     Column {
                         Text(title, style = MaterialTheme.typography.headlineSmall)
                         if (currentRoute == "dashboard") Text("Make today count.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -109,6 +111,7 @@ private fun StudentScaffold(name: String) {
         NavHost(navController = navController, startDestination = "dashboard", modifier = Modifier.padding(padding), enterTransition = { fadeIn() }, exitTransition = { fadeOut() }) {
             composable("dashboard") { DashboardScreen(onOpenHistory = { navController.navigate("history") }, onOpenAppLibrary = { navController.navigate("app_library") }) }
             composable("session") { SessionScreen() }
+            composable("planner") { StudyPlanScreen() }
             composable("history") { HistoryScreen() }
             composable("insights") { InsightsScreen() }
             composable("goals") { GoalsScreen() }
@@ -122,7 +125,7 @@ private fun StudentScaffold(name: String) {
 @Composable
 private fun StudentBottomBar(navController: androidx.navigation.NavHostController, currentRoute: String?) {
     Surface(tonalElevation = 0.dp, shadowElevation = 12.dp, color = MaterialTheme.colorScheme.background.copy(alpha = 0.96f)) {
-        NavigationBar(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp), containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f), tonalElevation = 0.dp) {
+        NavigationBar(modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp), containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f), tonalElevation = 0.dp) {
             BOTTOM_DESTINATIONS.forEach { dest ->
                 NavigationBarItem(
                     selected = currentRoute == dest.route || navController.currentDestination?.hierarchy?.any { it.route == dest.route } == true,
