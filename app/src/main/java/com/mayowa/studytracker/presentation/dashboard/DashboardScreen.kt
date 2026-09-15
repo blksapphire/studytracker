@@ -55,17 +55,14 @@ fun DashboardScreen(
             )
         }
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(20.dp))
 
         if (state.isSessionLive) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (isPaused) {
-                        MaterialTheme.colorScheme.surfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.primaryContainer
-                    }
+                    containerColor = if (isPaused) MaterialTheme.colorScheme.surfaceVariant
+                    else MaterialTheme.colorScheme.primaryContainer
                 )
             ) {
                 Column(
@@ -97,14 +94,32 @@ fun DashboardScreen(
             onStop = { TrackingService.stop(context) }
         )
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(20.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SummaryCard(
+                modifier = Modifier.weight(1f),
+                label = "This week",
+                value = formatDuration(state.weeklyStudyMillis)
+            )
+            SummaryCard(
+                modifier = Modifier.weight(1f),
+                label = "Sessions",
+                value = state.weeklySessionCount.toString()
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             StatCard(label = "Current streak", value = "🔥 ${state.currentStreakDays}d", accent = MaterialTheme.colorScheme.secondaryContainer, onAccent = MaterialTheme.colorScheme.onSecondaryContainer)
             StatCard(label = "Best streak", value = "⭐ ${state.longestStreakDays}d", accent = MaterialTheme.colorScheme.tertiaryContainer, onAccent = MaterialTheme.colorScheme.onTertiaryContainer)
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(20.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(onClick = onOpenHistory) { Text("History") }
@@ -123,10 +138,7 @@ private fun SessionControls(
     onStop: () -> Unit
 ) {
     if (!isLive) {
-        Button(
-            onClick = onStart,
-            modifier = Modifier.fillMaxWidth().height(56.dp)
-        ) {
+        Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(56.dp)) {
             Icon(Icons.Filled.PlayArrow, contentDescription = null)
             Spacer(Modifier.width(8.dp))
             Text("Start Session")
@@ -134,26 +146,16 @@ private fun SessionControls(
         return
     }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Button(
             onClick = if (isPaused) onResume else onPause,
             modifier = Modifier.weight(1f).height(52.dp)
         ) {
-            Icon(
-                if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
-                contentDescription = null
-            )
+            Icon(if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause, contentDescription = null)
             Spacer(Modifier.width(6.dp))
             Text(if (isPaused) "Resume" else "Pause")
         }
-
-        OutlinedButton(
-            onClick = onStop,
-            modifier = Modifier.weight(1f).height(52.dp)
-        ) {
+        OutlinedButton(onClick = onStop, modifier = Modifier.weight(1f).height(52.dp)) {
             Icon(Icons.Filled.Stop, contentDescription = null)
             Spacer(Modifier.width(6.dp))
             Text("Stop")
@@ -162,12 +164,20 @@ private fun SessionControls(
 }
 
 @Composable
+private fun SummaryCard(modifier: Modifier, label: String, value: String) {
+    ElevatedCard(modifier = modifier) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
 private fun StatCard(label: String, value: String, accent: androidx.compose.ui.graphics.Color, onAccent: androidx.compose.ui.graphics.Color) {
     Card(colors = CardDefaults.cardColors(containerColor = accent)) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = onAccent)
             Text(label, style = MaterialTheme.typography.labelMedium, color = onAccent)
         }
@@ -186,9 +196,6 @@ private fun formatLiveDuration(millis: Long): String {
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
-    return if (hours > 0) {
-        "%d:%02d:%02d".format(hours, minutes, seconds)
-    } else {
-        "%02d:%02d".format(minutes, seconds)
-    }
+    return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds)
+    else "%02d:%02d".format(minutes, seconds)
 }
