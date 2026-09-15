@@ -2,7 +2,7 @@ name: Build Debug APK
 
 on:
   push:
-    branches: [ main, ui-rebuild-staging ]
+    branches: [ main, ui-rebuild-staging, phase4-student-system ]
   workflow_dispatch: {}
 
 jobs:
