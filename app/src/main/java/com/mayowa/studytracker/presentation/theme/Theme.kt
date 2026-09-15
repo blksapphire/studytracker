@@ -9,54 +9,46 @@ import androidx.compose.ui.graphics.Color
 
 private val LightColors = lightColorScheme(
     primary = TealPrimary,
-    onPrimary = SurfaceLight,
+    onPrimary = Color.White,
     primaryContainer = TealPrimaryContainer,
     onPrimaryContainer = TealOnPrimaryContainer,
-
-    secondary = StreakCoral,
-    onSecondary = SurfaceLight,
-    secondaryContainer = StreakCoralContainer,
-    onSecondaryContainer = Color(0xFF5C1B0A), // deep coral-brown, readable on the light coral container
-
+    secondary = MintAccent,
+    onSecondary = Color(0xFF06281D),
+    secondaryContainer = MintContainer,
+    onSecondaryContainer = Color(0xFF063B2B),
     tertiary = XpAmber,
-    onTertiary = Color(0xFF3D2E00),
+    onTertiary = Color(0xFF3B2B00),
     tertiaryContainer = XpAmberContainer,
-    onTertiaryContainer = Color(0xFF3D2E00),
-
+    onTertiaryContainer = Color(0xFF3B2B00),
     background = SurfaceLight,
     onBackground = OnSurfaceLight,
     surface = SurfaceLight,
     onSurface = OnSurfaceLight,
-    surfaceVariant = Color(0xFFDCE5E3),
-    onSurfaceVariant = Color(0xFF3F4947),
-
+    surfaceVariant = Color(0xFFE9EAF2),
+    onSurfaceVariant = Color(0xFF555765),
     error = ErrorRed,
-    onError = SurfaceLight
+    onError = Color.White
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF5FE0CE), // lighter teal for contrast on dark surfaces
-    onPrimary = Color(0xFF00382F),
+    primary = Color(0xFFAAA6FF),
+    onPrimary = Color(0xFF29246B),
     primaryContainer = TealPrimaryDark,
-    onPrimaryContainer = TealPrimaryContainer,
-
-    secondary = StreakCoral,
-    onSecondary = Color(0xFF3D0F04),
-    secondaryContainer = Color(0xFF7A2A16),
-    onSecondaryContainer = StreakCoralContainer,
-
+    onPrimaryContainer = Color(0xFFE9E7FF),
+    secondary = Color(0xFF65E5BA),
+    onSecondary = Color(0xFF00382A),
+    secondaryContainer = Color(0xFF07513D),
+    onSecondaryContainer = MintContainer,
     tertiary = XpAmber,
-    onTertiary = Color(0xFF3D2E00),
+    onTertiary = Color(0xFF3B2B00),
     tertiaryContainer = Color(0xFF5A4400),
     onTertiaryContainer = XpAmberContainer,
-
     background = SurfaceDark,
     onBackground = OnSurfaceDark,
     surface = SurfaceDark,
     onSurface = OnSurfaceDark,
-    surfaceVariant = Color(0xFF3F4947),
-    onSurfaceVariant = Color(0xFFBFC9C6),
-
+    surfaceVariant = Color(0xFF282A36),
+    onSurfaceVariant = Color(0xFFC3C4D0),
     error = ErrorRed,
     onError = Color(0xFF3D0007)
 )
