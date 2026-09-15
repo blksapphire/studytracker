@@ -17,13 +17,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 
-/**
- * Foreground service. Polls UsageEvents every POLL_INTERVAL_MS, classifies
- * the current foreground app, and accumulates a live study session.
- *
- * The service also supports manual Start / Pause / Resume / Stop controls
- * from the dashboard. Pause keeps the live session but excludes paused time.
- */
 @AndroidEntryPoint
 class TrackingService : Service() {
 
@@ -58,21 +51,10 @@ class TrackingService : Service() {
         private val _liveElapsedMillis = MutableStateFlow(0L)
         val liveElapsedMillis: StateFlow<Long> = _liveElapsedMillis.asStateFlow()
 
-        fun start(context: Context) {
-            startWithAction(context, ACTION_START)
-        }
-
-        fun pause(context: Context) {
-            startWithAction(context, ACTION_PAUSE)
-        }
-
-        fun resume(context: Context) {
-            startWithAction(context, ACTION_RESUME)
-        }
-
-        fun stop(context: Context) {
-            startWithAction(context, ACTION_STOP)
-        }
+        fun start(context: Context) = startWithAction(context, ACTION_START)
+        fun pause(context: Context) = startWithAction(context, ACTION_PAUSE)
+        fun resume(context: Context) = startWithAction(context, ACTION_RESUME)
+        fun stop(context: Context) = startWithAction(context, ACTION_STOP)
 
         private fun startWithAction(context: Context, action: String) {
             val intent = Intent(context, TrackingService::class.java).setAction(action)
@@ -102,8 +84,7 @@ class TrackingService : Service() {
         val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         while (currentCoroutineContext().isActive) {
             if (!manuallyStopped && !_isPaused.value) {
-                val foregroundPackage = getCurrentForegroundPackage(usm)
-                handleForegroundChange(foregroundPackage)
+                handleForegroundChange(getCurrentForegroundPackage(usm))
             }
             delay(POLL_INTERVAL_MS)
         }
@@ -147,16 +128,11 @@ class TrackingService : Service() {
 
         if (!isDistracting) {
             lastNonDistractingAt = now
-            if (currentSessionId == null) {
-                startSession(foregroundPackage)
-            } else {
-                updateLiveSession(now, foregroundPackage)
-            }
+            if (currentSessionId == null) startSession(foregroundPackage)
+            else updateLiveSession(now, foregroundPackage)
         } else {
             val idleTooLong = (now - lastNonDistractingAt) > GRACE_WINDOW_MS
-            if (idleTooLong && currentSessionId != null) {
-                finishSession(now)
-            }
+            if (idleTooLong && currentSessionId != null) finishSession(now)
         }
     }
 
@@ -164,7 +140,6 @@ class TrackingService : Service() {
         manuallyStopped = false
         _isPaused.value = false
         pausedAt = 0L
-
         if (currentSessionId != null) return
 
         val existing = sessionDao.getLiveSession()
@@ -192,18 +167,17 @@ class TrackingService : Service() {
 
     private suspend fun updateLiveSession(now: Long, foregroundPackage: String?) {
         val id = currentSessionId ?: return
-        val existing = sessionDao.getLiveSession()
+        val existing = sessionDao.getLiveSession() ?: return
         val duration = (now - sessionStartedAt).coerceAtLeast(0L)
         _liveElapsedMillis.value = duration
+
+        val packageName = foregroundPackage.orEmpty()
+        val trail = if (packageName.isBlank()) existing.appTrailCsv
+        else if (existing.appTrailCsv.isBlank()) packageName
+        else existing.appTrailCsv + "," + packageName
+
         sessionDao.upsertSession(
-            SessionEntity(
-                id = id,
-                startedAt = sessionStartedAt,
-                endedAt = null,
-                durationMillis = duration,
-                tag = existing?.tag,
-                appTrailCsv = foregroundPackage.orEmpty()
-            )
+            existing.copy(durationMillis = duration, appTrailCsv = trail)
         )
     }
 
@@ -212,9 +186,7 @@ class TrackingService : Service() {
         pausedAt = System.currentTimeMillis()
         val existing = sessionDao.getLiveSession()
         val duration = (pausedAt - sessionStartedAt).coerceAtLeast(0L)
-        existing?.let {
-            sessionDao.upsertSession(it.copy(durationMillis = duration))
-        }
+        existing?.let { sessionDao.upsertSession(it.copy(durationMillis = duration)) }
         _liveElapsedMillis.value = duration
         _isPaused.value = true
     }
@@ -225,7 +197,6 @@ class TrackingService : Service() {
             startSession()
             return
         }
-
         val now = System.currentTimeMillis()
         sessionStartedAt += (now - pausedAt).coerceAtLeast(0L)
         pausedAt = 0L
@@ -237,17 +208,11 @@ class TrackingService : Service() {
         val now = System.currentTimeMillis()
         if (currentSessionId != null) {
             val existing = sessionDao.getLiveSession()
-            val duration = if (_isPaused.value) {
-                existing?.durationMillis ?: _liveElapsedMillis.value
-            } else {
-                (now - sessionStartedAt).coerceAtLeast(0L)
-            }
-            existing?.let {
-                sessionDao.upsertSession(it.copy(endedAt = now, durationMillis = duration))
-            }
+            val duration = if (_isPaused.value) existing?.durationMillis ?: _liveElapsedMillis.value
+            else (now - sessionStartedAt).coerceAtLeast(0L)
+            existing?.let { sessionDao.upsertSession(it.copy(endedAt = now, durationMillis = duration)) }
             RollupScheduler.triggerNow(applicationContext)
         }
-
         currentSessionId = null
         sessionStartedAt = 0L
         pausedAt = 0L
@@ -261,34 +226,26 @@ class TrackingService : Service() {
         val id = currentSessionId ?: return
         val existing = sessionDao.getLiveSession()
         val duration = (now - sessionStartedAt).coerceAtLeast(0L)
-        sessionDao.upsertSession(
-            SessionEntity(
-                id = id,
-                startedAt = sessionStartedAt,
-                endedAt = now,
-                durationMillis = duration,
-                tag = existing?.tag,
-                appTrailCsv = ""
+        existing?.let {
+            sessionDao.upsertSession(
+                it.copy(id = id, endedAt = now, durationMillis = duration)
             )
-        )
+        }
         currentSessionId = null
         _liveElapsedMillis.value = 0L
         RollupScheduler.triggerNow(applicationContext)
     }
 
-    private fun buildNotification(text: String): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+    private fun buildNotification(text: String): Notification =
+        NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("StudyTracker")
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .build()
-    }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID, "Study Tracking", NotificationManager.IMPORTANCE_MIN
-        )
+        val channel = NotificationChannel(CHANNEL_ID, "Study Tracking", NotificationManager.IMPORTANCE_MIN)
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
