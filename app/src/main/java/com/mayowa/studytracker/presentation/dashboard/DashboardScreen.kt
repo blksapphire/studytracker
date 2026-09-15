@@ -25,6 +25,7 @@ fun DashboardScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val isPaused by TrackingService.isPaused.collectAsState()
+    val liveElapsedMillis by TrackingService.liveElapsedMillis.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(
@@ -56,6 +57,37 @@ fun DashboardScreen(
 
         Spacer(Modifier.height(28.dp))
 
+        if (state.isSessionLive) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isPaused) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer
+                    }
+                )
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        if (isPaused) "SESSION PAUSED" else "● LIVE SESSION",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        formatLiveDuration(liveElapsedMillis),
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+
         SessionControls(
             isLive = state.isSessionLive,
             isPaused = isPaused,
@@ -73,14 +105,6 @@ fun DashboardScreen(
         }
 
         Spacer(Modifier.height(24.dp))
-
-        if (state.isSessionLive) {
-            AssistChip(
-                onClick = {},
-                label = { Text(if (isPaused) "Session paused" else "Live session in progress") }
-            )
-            Spacer(Modifier.height(16.dp))
-        }
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             OutlinedButton(onClick = onOpenHistory) { Text("History") }
@@ -155,4 +179,16 @@ fun formatDuration(millis: Long): String {
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
     return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+}
+
+private fun formatLiveDuration(millis: Long): String {
+    val totalSeconds = millis / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes, seconds)
+    } else {
+        "%02d:%02d".format(minutes, seconds)
+    }
 }
