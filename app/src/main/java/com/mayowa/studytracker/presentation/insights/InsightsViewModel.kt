@@ -1,13 +1,21 @@
 package com.mayowa.studytracker.presentation.insights
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mayowa.studytracker.domain.repository.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Inject
+
+data class AppInsight(
+    val packageName: String,
+    val label: String,
+    val trackedMillis: Long
+)
 
 data class WeeklyInsights(
     val totalMillis: Long = 0,
@@ -17,12 +25,14 @@ data class WeeklyInsights(
     val topTag: String? = null,
     val sessionCount: Int = 0,
     val averageSessionMillis: Long = 0,
-    val peakHour: Int? = null
+    val peakHour: Int? = null,
+    val topApps: List<AppInsight> = emptyList()
 )
 
 @HiltViewModel
 class InsightsViewModel @Inject constructor(
-    sessionRepository: SessionRepository
+    sessionRepository: SessionRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     val weeklyInsights: StateFlow<WeeklyInsights> = combine(
@@ -35,15 +45,32 @@ class InsightsViewModel @Inject constructor(
         val tagCounts = week.mapNotNull { it.topTag }.groupingBy { it }.eachCount()
         val cutoff = System.currentTimeMillis() - 7L * 24L * 60L * 60L * 1000L
         val weekSessions = sessions.filter { it.startedAt >= cutoff && it.endedAt != null }
+
         val peakHour = weekSessions
             .groupingBy {
-                Instant.ofEpochMilli(it.startedAt)
-                    .atZone(ZoneId.systemDefault())
-                    .hour
+                Instant.ofEpochMilli(it.startedAt).atZone(ZoneId.systemDefault()).hour
             }
             .eachCount()
             .maxByOrNull { it.value }
             ?.key
+
+        val appCounts = weekSessions
+            .flatMap { it.appTrail }
+            .filter { it.isNotBlank() }
+            .groupingBy { it }
+            .eachCount()
+
+        val topApps = appCounts
+            .entries
+            .sortedByDescending { it.value }
+            .take(5)
+            .map { (packageName, samples) ->
+                AppInsight(
+                    packageName = packageName,
+                    label = applicationLabel(packageName),
+                    trackedMillis = samples * 7_000L
+                )
+            }
 
         WeeklyInsights(
             totalMillis = week.sumOf { it.totalStudyMillis },
@@ -53,7 +80,14 @@ class InsightsViewModel @Inject constructor(
             topTag = tagCounts.maxByOrNull { it.value }?.key,
             sessionCount = weekSessions.size,
             averageSessionMillis = if (weekSessions.isEmpty()) 0 else weekSessions.sumOf { it.durationMillis } / weekSessions.size,
-            peakHour = peakHour
+            peakHour = peakHour,
+            topApps = topApps
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), WeeklyInsights())
+
+    private fun applicationLabel(packageName: String): String = runCatching {
+        context.packageManager.getApplicationLabel(
+            context.packageManager.getApplicationInfo(packageName, 0)
+        ).toString()
+    }.getOrDefault(packageName)
 }
