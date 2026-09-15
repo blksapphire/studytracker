@@ -26,24 +26,30 @@ class TrackingService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var pollingJob: Job? = null
     private var liveTimerJob: Job? = null
+    private var focusTimerJob: Job? = null
 
     private var currentSessionId: Long? = null
     private var sessionStartedAt: Long = 0L
     private var lastNonDistractingAt: Long = 0L
     private var lastKnownForegroundPackage: String? = null
+    private var lastDistractingPackage: String? = null
     private var pausedAt: Long = 0L
     private var manuallyStopped = false
 
     companion object {
         const val CHANNEL_ID = "tracking_channel"
         const val NOTIFICATION_ID = 1
+        const val DISTRACTION_NOTIFICATION_ID = 2
         const val POLL_INTERVAL_MS = 7_000L
         const val GRACE_WINDOW_MS = 8_000L
+        const val DEFAULT_FOCUS_DURATION_MS = 25 * 60 * 1000L
 
         const val ACTION_START = "com.mayowa.studytracker.action.START"
         const val ACTION_PAUSE = "com.mayowa.studytracker.action.PAUSE"
         const val ACTION_RESUME = "com.mayowa.studytracker.action.RESUME"
         const val ACTION_STOP = "com.mayowa.studytracker.action.STOP"
+        const val ACTION_FOCUS_START = "com.mayowa.studytracker.action.FOCUS_START"
+        const val ACTION_FOCUS_STOP = "com.mayowa.studytracker.action.FOCUS_STOP"
 
         private val _isPaused = MutableStateFlow(false)
         val isPaused: StateFlow<Boolean> = _isPaused.asStateFlow()
@@ -51,10 +57,18 @@ class TrackingService : Service() {
         private val _liveElapsedMillis = MutableStateFlow(0L)
         val liveElapsedMillis: StateFlow<Long> = _liveElapsedMillis.asStateFlow()
 
+        private val _focusRemainingMillis = MutableStateFlow(0L)
+        val focusRemainingMillis: StateFlow<Long> = _focusRemainingMillis.asStateFlow()
+
+        private val _isFocusMode = MutableStateFlow(false)
+        val isFocusMode: StateFlow<Boolean> = _isFocusMode.asStateFlow()
+
         fun start(context: Context) = startWithAction(context, ACTION_START)
         fun pause(context: Context) = startWithAction(context, ACTION_PAUSE)
         fun resume(context: Context) = startWithAction(context, ACTION_RESUME)
         fun stop(context: Context) = startWithAction(context, ACTION_STOP)
+        fun startFocus(context: Context) = startWithAction(context, ACTION_FOCUS_START)
+        fun stopFocus(context: Context) = startWithAction(context, ACTION_FOCUS_STOP)
 
         private fun startWithAction(context: Context, action: String) {
             val intent = Intent(context, TrackingService::class.java).setAction(action)
@@ -76,6 +90,8 @@ class TrackingService : Service() {
             ACTION_PAUSE -> serviceScope.launch { pauseSession() }
             ACTION_RESUME -> serviceScope.launch { resumeSession() }
             ACTION_STOP -> serviceScope.launch { stopSession() }
+            ACTION_FOCUS_START -> serviceScope.launch { startFocusMode() }
+            ACTION_FOCUS_STOP -> serviceScope.launch { stopFocusMode() }
         }
         return START_STICKY
     }
@@ -106,6 +122,35 @@ class TrackingService : Service() {
         }
     }
 
+    private suspend fun startFocusMode() {
+        manuallyStopped = false
+        startSession()
+        if (_isFocusMode.value) return
+        _isFocusMode.value = true
+        _focusRemainingMillis.value = DEFAULT_FOCUS_DURATION_MS
+        focusTimerJob?.cancel()
+        focusTimerJob = serviceScope.launch {
+            while (currentCoroutineContext().isActive && _focusRemainingMillis.value > 0L) {
+                delay(1_000L)
+                _focusRemainingMillis.value = (_focusRemainingMillis.value - 1_000L).coerceAtLeast(0L)
+            }
+            if (currentCoroutineContext().isActive && _isFocusMode.value) {
+                _isFocusMode.value = false
+                _focusRemainingMillis.value = 0L
+                updateTrackingNotification("Focus session complete")
+            }
+        }
+        updateTrackingNotification("Focus mode: 25 minutes")
+    }
+
+    private fun stopFocusMode() {
+        focusTimerJob?.cancel()
+        focusTimerJob = null
+        _isFocusMode.value = false
+        _focusRemainingMillis.value = 0L
+        updateTrackingNotification("Tracking your study time")
+    }
+
     private fun getCurrentForegroundPackage(usm: UsageStatsManager): String? {
         val end = System.currentTimeMillis()
         val start = end - (POLL_INTERVAL_MS * 3)
@@ -122,17 +167,31 @@ class TrackingService : Service() {
     }
 
     private suspend fun handleForegroundChange(foregroundPackage: String?) {
-        lastKnownForegroundPackage = foregroundPackage
         val now = System.currentTimeMillis()
         val isDistracting = foregroundPackage?.let { appClassifier.isDistracting(it) } ?: false
 
         if (!isDistracting) {
             lastNonDistractingAt = now
+            lastDistractingPackage = null
             if (currentSessionId == null) startSession(foregroundPackage)
             else updateLiveSession(now, foregroundPackage)
         } else {
+            if (foregroundPackage != null && foregroundPackage != lastDistractingPackage) {
+                recordDistraction(foregroundPackage)
+                lastDistractingPackage = foregroundPackage
+            }
             val idleTooLong = (now - lastNonDistractingAt) > GRACE_WINDOW_MS
-            if (idleTooLong && currentSessionId != null) finishSession(now)
+            if (idleTooLong && currentSessionId != null && !_isFocusMode.value) finishSession(now)
+            else if (currentSessionId != null && _isFocusMode.value) updateLiveSession(now, null)
+        }
+        lastKnownForegroundPackage = foregroundPackage
+    }
+
+    private suspend fun recordDistraction(packageName: String) {
+        val existing = sessionDao.getLiveSession() ?: return
+        sessionDao.upsertSession(existing.copy(distractionCount = existing.distractionCount + 1))
+        if (_isFocusMode.value) {
+            showDistractionNudge(packageName)
         }
     }
 
@@ -176,9 +235,7 @@ class TrackingService : Service() {
         else if (existing.appTrailCsv.isBlank()) packageName
         else existing.appTrailCsv + "," + packageName
 
-        sessionDao.upsertSession(
-            existing.copy(durationMillis = duration, appTrailCsv = trail)
-        )
+        sessionDao.upsertSession(existing.copy(id = id, durationMillis = duration, appTrailCsv = trail))
     }
 
     private suspend fun pauseSession() {
@@ -205,6 +262,7 @@ class TrackingService : Service() {
     }
 
     private suspend fun stopSession() {
+        stopFocusMode()
         val now = System.currentTimeMillis()
         if (currentSessionId != null) {
             val existing = sessionDao.getLiveSession()
@@ -226,14 +284,28 @@ class TrackingService : Service() {
         val id = currentSessionId ?: return
         val existing = sessionDao.getLiveSession()
         val duration = (now - sessionStartedAt).coerceAtLeast(0L)
-        existing?.let {
-            sessionDao.upsertSession(
-                it.copy(id = id, endedAt = now, durationMillis = duration)
-            )
-        }
+        existing?.let { sessionDao.upsertSession(it.copy(id = id, endedAt = now, durationMillis = duration)) }
         currentSessionId = null
         _liveElapsedMillis.value = 0L
         RollupScheduler.triggerNow(applicationContext)
+    }
+
+    private fun showDistractionNudge(packageName: String) {
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Stay focused")
+            .setContentText("You opened a distracting app during Focus Mode.")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+        getSystemService(NotificationManager::class.java).notify(DISTRACTION_NOTIFICATION_ID, notification)
+    }
+
+    private fun updateTrackingNotification(text: String) {
+        getSystemService(NotificationManager::class.java).notify(
+            NOTIFICATION_ID,
+            buildNotification(text)
+        )
     }
 
     private fun buildNotification(text: String): Notification =
@@ -252,9 +324,12 @@ class TrackingService : Service() {
     override fun onDestroy() {
         pollingJob?.cancel()
         liveTimerJob?.cancel()
+        focusTimerJob?.cancel()
         serviceScope.cancel()
         _isPaused.value = false
         _liveElapsedMillis.value = 0L
+        _isFocusMode.value = false
+        _focusRemainingMillis.value = 0L
         super.onDestroy()
     }
 
