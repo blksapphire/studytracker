@@ -8,6 +8,7 @@ import androidx.room.Room
 import com.mayowa.studytracker.data.local.AppDatabase
 import com.mayowa.studytracker.data.local.dao.DailyStatsDao
 import com.mayowa.studytracker.data.local.dao.SessionDao
+import com.mayowa.studytracker.data.profile.ProfileStore
 import com.mayowa.studytracker.data.repository.SessionRepositoryImpl
 import com.mayowa.studytracker.domain.repository.SessionRepository
 import dagger.Module
@@ -30,11 +31,8 @@ object AppModule {
             .addMigrations(AppDatabase.MIGRATION_1_2)
             .build()
 
-    @Provides
-    fun provideSessionDao(db: AppDatabase): SessionDao = db.sessionDao()
-
-    @Provides
-    fun provideDailyStatsDao(db: AppDatabase): DailyStatsDao = db.dailyStatsDao()
+    @Provides fun provideSessionDao(db: AppDatabase): SessionDao = db.sessionDao()
+    @Provides fun provideDailyStatsDao(db: AppDatabase): DailyStatsDao = db.dailyStatsDao()
 
     @Provides
     @Singleton
@@ -43,4 +41,8 @@ object AppModule {
     @Provides
     @Singleton
     fun provideSessionRepository(impl: SessionRepositoryImpl): SessionRepository = impl
+
+    @Provides
+    @Singleton
+    fun provideProfileStore(@ApplicationContext context: Context): ProfileStore = ProfileStore(context)
 }
