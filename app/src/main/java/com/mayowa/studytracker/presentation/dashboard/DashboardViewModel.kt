@@ -15,7 +15,9 @@ data class DashboardUiState(
     val currentStreakDays: Int = 0,
     val longestStreakDays: Int = 0,
     val isSessionLive: Boolean = false,
-    val recentTags: List<String> = emptyList()
+    val recentTags: List<String> = emptyList(),
+    val weeklyStudyMillis: Long = 0,
+    val weeklySessionCount: Int = 0
 )
 
 @HiltViewModel
@@ -27,18 +29,25 @@ class DashboardViewModel @Inject constructor(
 
     val uiState: StateFlow<DashboardUiState> = combine(
         sessionRepository.getRecentDailyStats(14),
+        sessionRepository.getRecentSessions(100),
         sessionRepository.getLiveSession()
-    ) { stats, liveSession ->
+    ) { stats, sessions, liveSession ->
         val today = stats.firstOrNull()
         val streak = calculateStreak(stats)
-        val goal = calculateAdaptiveGoal(stats.drop(1)) // exclude today: goal shouldn't be based on itself
+        val goal = calculateAdaptiveGoal(stats.drop(1))
+        val weekStats = stats.take(7)
+        val cutoff = System.currentTimeMillis() - 7L * 24L * 60L * 60L * 1000L
+        val weeklySessions = sessions.count { it.startedAt >= cutoff && it.endedAt != null }
+
         DashboardUiState(
             todayStudyMillis = today?.totalStudyMillis ?: 0,
             goalMillis = goal,
             currentStreakDays = streak.currentStreakDays,
             longestStreakDays = streak.longestStreakDays,
             isSessionLive = liveSession != null,
-            recentTags = listOfNotNull(today?.topTag)
+            recentTags = listOfNotNull(today?.topTag),
+            weeklyStudyMillis = weekStats.sumOf { it.totalStudyMillis },
+            weeklySessionCount = weeklySessions
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState())
 }
