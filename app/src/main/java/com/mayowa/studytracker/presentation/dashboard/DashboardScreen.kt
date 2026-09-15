@@ -26,6 +26,8 @@ fun DashboardScreen(
     val state by viewModel.uiState.collectAsState()
     val isPaused by TrackingService.isPaused.collectAsState()
     val liveElapsedMillis by TrackingService.liveElapsedMillis.collectAsState()
+    val isFocusMode by TrackingService.isFocusMode.collectAsState()
+    val focusRemainingMillis by TrackingService.focusRemainingMillis.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(
@@ -70,19 +72,40 @@ fun DashboardScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        if (isPaused) "SESSION PAUSED" else "● LIVE SESSION",
+                        if (isPaused) "SESSION PAUSED" else if (isFocusMode) "● FOCUS MODE" else "● LIVE SESSION",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        formatLiveDuration(liveElapsedMillis),
+                        if (isFocusMode) formatFocusDuration(focusRemainingMillis)
+                        else formatLiveDuration(liveElapsedMillis),
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold
                     )
+                    if (isFocusMode) {
+                        Spacer(Modifier.height(4.dp))
+                        Text("Focus countdown", style = MaterialTheme.typography.labelMedium)
+                    }
                 }
             }
             Spacer(Modifier.height(16.dp))
+        }
+
+        if (!state.isSessionLive) {
+            Button(
+                onClick = { TrackingService.startFocus(context) },
+                modifier = Modifier.fillMaxWidth().height(56.dp)
+            ) {
+                Text("Start 25-min Focus")
+            }
+            Spacer(Modifier.height(10.dp))
+        } else if (isFocusMode) {
+            OutlinedButton(
+                onClick = { TrackingService.stopFocus(context) },
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+            ) { Text("End Focus Mode") }
+            Spacer(Modifier.height(10.dp))
         }
 
         SessionControls(
@@ -100,16 +123,8 @@ fun DashboardScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SummaryCard(
-                modifier = Modifier.weight(1f),
-                label = "This week",
-                value = formatDuration(state.weeklyStudyMillis)
-            )
-            SummaryCard(
-                modifier = Modifier.weight(1f),
-                label = "Sessions",
-                value = state.weeklySessionCount.toString()
-            )
+            SummaryCard(modifier = Modifier.weight(1f), label = "This week", value = formatDuration(state.weeklyStudyMillis))
+            SummaryCard(modifier = Modifier.weight(1f), label = "Sessions", value = state.weeklySessionCount.toString())
         }
 
         Spacer(Modifier.height(16.dp))
@@ -138,7 +153,7 @@ private fun SessionControls(
     onStop: () -> Unit
 ) {
     if (!isLive) {
-        Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+        OutlinedButton(onClick = onStart, modifier = Modifier.fillMaxWidth().height(52.dp)) {
             Icon(Icons.Filled.PlayArrow, contentDescription = null)
             Spacer(Modifier.width(8.dp))
             Text("Start Session")
@@ -147,10 +162,7 @@ private fun SessionControls(
     }
 
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Button(
-            onClick = if (isPaused) onResume else onPause,
-            modifier = Modifier.weight(1f).height(52.dp)
-        ) {
+        Button(onClick = if (isPaused) onResume else onPause, modifier = Modifier.weight(1f).height(52.dp)) {
             Icon(if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause, contentDescription = null)
             Spacer(Modifier.width(6.dp))
             Text(if (isPaused) "Resume" else "Pause")
@@ -198,4 +210,11 @@ private fun formatLiveDuration(millis: Long): String {
     val seconds = totalSeconds % 60
     return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds)
     else "%02d:%02d".format(minutes, seconds)
+}
+
+private fun formatFocusDuration(millis: Long): String {
+    val totalSeconds = (millis / 1000).coerceAtLeast(0L)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%02d:%02d".format(minutes, seconds)
 }
